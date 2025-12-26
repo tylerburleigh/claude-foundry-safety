@@ -10,8 +10,8 @@ A Claude Code plugin that acts as a safety net, catching destructive git and fil
 ## Why This Exists
 
 We learned the [hard way](https://www.reddit.com/r/ClaudeAI/comments/1pgxckk/claude_cli_deleted_my_entire_home_directory_wiped/) that instructions aren't enough to keep AI agents in check.
-After Claude Code silently wiped out hours of progress with a single `rm -rf ~/` or `git checkout --`, we were reminded that **"soft"** rules in an `CLAUDE.md` or `AGENTS.md` file cannot replace **hard** technical constraints.
-We've now moved from documentation to mechanical enforcement, using a dedicated hook to programmatically prevent agents from running destructive commands.
+After Claude Code silently wiped out hours of progress with a single `rm -rf ~/` or `git checkout --`, it became evident that **"soft"** rules in an `CLAUDE.md` or `AGENTS.md` file cannot replace **hard** technical constraints.
+The current approach is to use a dedicated hook to programmatically prevent agents from running destructive commands.
 
 ## Why Hooks Instead of settings.json?
 

@@ -35,7 +35,12 @@ This hook provides **semantic command analysis**: it parses arguments, understan
 /plugin install safety-net@cc-marketplace
 ```
 
-> **Note:** Restart Claude Code after installation to ensure the hooks are properly registered.
+> [!NOTE]
+> After installing the plugin, you need to restart your Claude Code for it to take effect.
+
+### Auto-Update
+
+1. Run `/plugin` → Select `Marketplaces` → Choose `cc-marketplace` → Enable auto-update
 
 ## Commands Blocked
 

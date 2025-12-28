@@ -1,19 +1,19 @@
 {
-  "name": "safety-net",
+  "name": "claude-foundry-safety",
   "version": "0.1.0",
-  "description": "Block destructive git and filesystem commands in Claude Code",
+  "description": "Safety guardrails for claude-foundry: blocks destructive commands, protects sensitive files, and prevents unsafe git operations",
   "author": {
-    "name": "J Liew",
-    "email": "jliew@420024lab.com"
+    "name": "Tyler Burleigh",
+    "email": "tylerburleigh@gmail.com"
   },
-  "homepage": "https://github.com/kenryu42/claude-code-safety-net",
-  "repository": "https://github.com/kenryu42/claude-code-safety-net.git",
+  "homepage": "https://github.com/tylerburleigh/claude-foundry-safety",
+  "repository": "https://github.com/tylerburleigh/claude-foundry-safety.git",
   "license": "MIT",
   "keywords": [
     "claude",
     "claude-code",
     "git",
-    "safety net",
+    "safety",
     "destructive",
     "command",
     "guard",

@@ -1,185 +1,133 @@
-# Claude Code Safety Net
+# claude-foundry-safety
 
-[![CI](https://github.com/kenryu42/claude-code-safety-net/actions/workflows/ci.yml/badge.svg)](https://github.com/kenryu42/claude-code-safety-net/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-0.1.0-blue)](https://github.com/kenryu42/claude-code-plan-export)
-[![Claude Code](https://img.shields.io/badge/Claude%20Code-Plugin-orange)](https://platform.claude.com/docs/en/agent-sdk/plugins)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+Safety guardrails for [claude-foundry](https://github.com/tylerburleigh/claude-foundry). This Claude Code plugin protects your development environment by blocking destructive commands, preventing access to sensitive files, and enforcing safe git operations.
 
-A Claude Code plugin that acts as a safety net, catching destructive git and filesystem commands before they execute.
+## Features
 
-## Why This Exists
+- **Destructive Command Blocking** - Prevents `rm -rf`, `git reset --hard`, and other dangerous operations
+- **Sensitive File Protection** - Blocks reading of SSH keys, API keys, credentials, and config files
+- **Git Safety** - Prevents branch switching, unauthorized rebasing, force pushes, and history rewriting
+- **Shell Wrapper Detection** - Catches dangerous commands hidden in `bash -c`, `sh -c`, or interpreter one-liners
 
-We learned the [hard way](https://www.reddit.com/r/ClaudeAI/comments/1pgxckk/claude_cli_deleted_my_entire_home_directory_wiped/) that instructions aren't enough to keep AI agents in check.
-After Claude Code silently wiped out hours of progress with a single `rm -rf ~/` or `git checkout --`, it became evident that **"soft"** rules in an `CLAUDE.md` or `AGENTS.md` file cannot replace **hard** technical constraints.
-The current approach is to use a dedicated hook to programmatically prevent agents from running destructive commands.
-
-## Why Hooks Instead of settings.json?
-
-Claude Code's `.claude/settings.json` supports deny rules for Bash commands, but these use [simple prefix matching](https://code.claude.com/docs/en/iam#tool-specific-permission-rules)—not pattern matching or semantic analysis. This makes them insufficient for nuanced safety rules:
-
-| Limitation | Example |
-|------------|---------|
-| Can't distinguish safe vs. dangerous variants | `Bash(git checkout)` blocks both `git checkout -b new-branch` (safe) and `git checkout -- file` (dangerous) |
-| Can't parse flags semantically | `Bash(rm -rf)` blocks `rm -rf /tmp/cache` (safe) but allows `rm -r -f /` (dangerous, different flag order) |
-| Can't detect shell wrappers | `sh -c "rm -rf /"` bypasses a `Bash(rm)` deny rule entirely |
-| Can't analyze interpreter one-liners | `python -c 'os.system("rm -rf /")'` executes without matching any rm rule |
-
-This hook provides **semantic command analysis**: it parses arguments, understands flag combinations, recursively analyzes shell wrappers, and distinguishes safe operations (temp directories, within cwd) from dangerous ones.
-
-## Quick Start
-
-### Installation
+## Installation
 
 ```bash
-/plugin marketplace add kenryu42/cc-marketplace
-/plugin install safety-net@cc-marketplace
+# Add the marketplace
+/plugin marketplace add tylerburleigh/claude-foundry-safety
+
+# Install the plugin
+/plugin install claude-foundry-safety
 ```
 
-> [!NOTE]
-> After installing the plugin, you need to restart your Claude Code for it to take effect.
+Restart Claude Code after installation.
 
-### Auto-Update
+## What Gets Blocked
 
-1. Run `/plugin` → Select `Marketplaces` → Choose `cc-marketplace` → Enable auto-update
+### Git Operations
 
-## Commands Blocked
+| Command | Reason |
+|---------|--------|
+| `git checkout <branch>` | Branch switching not allowed |
+| `git checkout -b`, `git switch -c` | Branch creation not allowed |
+| `git branch -d/-D` | Branch deletion not allowed |
+| `git checkout -- <files>` | Discards uncommitted changes |
+| `git restore <files>` | Discards uncommitted changes |
+| `git reset --hard` | Destroys uncommitted changes |
+| `git rebase` | History rewriting not allowed |
+| `git commit --amend` | History rewriting not allowed |
+| `git push --force` | Destroys remote history |
+| `git tag -d` | Tag deletion not allowed |
+| `git clean -f` | Removes untracked files |
+| `git stash drop/clear` | Deletes stashed changes |
 
-| Command Pattern | Why It's Dangerous |
-|-----------------|-------------------|
-| git checkout -- files | Discards uncommitted changes permanently |
-| git checkout \<ref\> -- \<path\> | Overwrites working tree with ref version |
-| git restore files | Discards uncommitted changes |
-| git restore --worktree | Explicitly discards working tree changes |
-| git reset --hard | Destroys all uncommitted changes |
-| git reset --merge | Can lose uncommitted changes |
-| git clean -f | Removes untracked files permanently |
-| git push --force / -f | Destroys remote history |
-| git branch -D | Force-deletes branch without merge check |
-| git stash drop | Permanently deletes stashed changes |
-| git stash clear | Deletes ALL stashed changes |
-| rm -rf (paths outside cwd) | Recursive file deletion outside the current directory |
-| rm -rf / or ~ or $HOME | Root/home deletion is extremely dangerous |
+### Sensitive Files
 
-## Commands Allowed
+Reading these paths is blocked via `cat`, `less`, `head`, `tail`, `bat`, `view`, `strings`, `xxd`, etc:
 
-| Command Pattern | Why It's Safe |
-|-----------------|--------------|
-| git checkout -b branch | Creates new branch |
-| git checkout --orphan | Creates orphan branch |
-| git restore --staged | Only unstages, doesn't discard |
-| git restore --help/--version | Help/version output |
-| git branch -d | Safe delete with merge check |
-| git clean -n / --dry-run | Preview only |
-| git push --force-with-lease | Safe force push |
-| rm -rf /tmp/... | Temp directories are ephemeral |
-| rm -rf /var/tmp/... | System temp directory |
-| rm -rf $TMPDIR/... | User's temp directory |
-| rm -rf ./... (within cwd) | Limited to current working directory |
+| Path | Contents |
+|------|----------|
+| `~/.ssh/*` | SSH keys |
+| `~/.api_keys` | API keys |
+| `~/.config/gh/*` | GitHub CLI auth |
+| `~/.gemini/*` | Gemini CLI config |
+| `~/.config/opencode/*` | OpenCode config |
+| `~/.cursor/*` | Cursor config |
+| `~/.codex/*` | Codex config |
+| `~/.gitconfig` | Git credentials |
+| `~/.claude/.credentials.json` | Claude credentials |
 
-## What Happens When Blocked
+### Filesystem
 
-When a destructive command is detected, the plugin blocks the tool execution and provides a reason.
+| Command | Reason |
+|---------|--------|
+| `rm -rf /` or `~` | Root/home deletion blocked |
+| `rm -rf` outside cwd | Must be within working directory |
 
-Example output:
-```text
-BLOCKED by safety_net.py
+## What's Allowed
 
-Reason: git checkout -- discards uncommitted changes permanently. Use 'git stash' first.
+| Command | Why |
+|---------|-----|
+| `git branch` (no args) | Just lists branches |
+| `git branch -v/-a` | List operations |
+| `git tag` (no args) | Lists tags |
+| `git tag v1.0` | Creating tags |
+| `git commit -m "..."` | Normal commits |
+| `git restore --staged` | Only unstages, safe |
+| `git push --force-with-lease` | Safe force push |
+| `rm -rf /tmp/...` | Temp directories |
+| `rm -rf ./path` | Within cwd |
+| `cat ~/.bashrc` | Non-sensitive files |
 
-Command: git checkout -- src/main.py
+## Strict Mode
 
-If this operation is truly needed, ask the user for explicit permission and have them run the command manually.
-```
-
-## Testing the Hook
-
-You can manually test the hook by attempting to run blocked commands in Claude Code:
-
-```bash
-# This should be blocked
-git checkout -- README.md
-
-# This should be allowed
-git checkout -b test-branch
-```
-
-## Development
-
-### Setup
-
-```bash
-just setup
-# or
-uv sync && uv run pre-commit install
-```
-
-### Run Tests
-
-```bash
-uv run pytest
-```
-
-### Full Checks
-
-```bash
-just check
-```
-
-## Project Structure
-
-```text
-.claude-plugin/
-  plugin.json
-  marketplace.json
-hooks/
-  hooks.json
-scripts/
-  safety_net.py          # Entry point
-  safety_net_impl/
-    __init__.py
-    hook.py              # Main hook logic
-    rules_git.py         # Git command rules
-    rules_rm.py          # rm command rules
-    shell.py             # Shell parsing utilities
-tests/
-  safety_net_test_base.py
-  test_safety_net_edge.py
-  test_safety_net_git.py
-  test_safety_net_rm.py
-```
-
-## Advanced Features
-
-### Strict Mode
-
-By default, unparseable commands are allowed through, and `rm -rf` is allowed only for temp
-paths and paths within the current working directory. Enable strict mode to additionally
-block unparseable commands and block non-temp `rm -rf`:
+Enable stricter blocking:
 
 ```bash
 export SAFETY_NET_STRICT=1
 ```
 
-### Shell Wrapper Detection
+This additionally blocks:
+- Unparseable commands
+- All `rm -rf` except temp paths
 
-The guard recursively analyzes commands wrapped in shells:
-
-```bash
-bash -c 'git reset --hard'    # Blocked
-sh -lc 'rm -rf /'             # Blocked
-```
-
-### Interpreter One-Liner Detection
-
-Detects destructive commands hidden in Python/Node/Ruby/Perl one-liners:
+## Development
 
 ```bash
-python -c 'import os; os.system("rm -rf /")'  # Blocked
+# Setup
+uv sync && uv run pre-commit install
+
+# Run tests
+uv run pytest
+
+# All checks (ruff, mypy, vulture, pytest)
+uv run ruff check && uv run mypy . && uv run pytest
 ```
 
-### Secret Redaction
+## Project Structure
 
-Block messages automatically redact sensitive data (tokens, passwords, API keys) to prevent leaking secrets in logs.
+```
+.claude-plugin/
+  plugin.json           # Plugin metadata
+  marketplace.json      # Marketplace config
+hooks/
+  hooks.json            # Hook registration
+scripts/
+  safety_net.py         # Entry point
+  safety_net_impl/
+    hook.py             # Main hook logic
+    rules_git.py        # Git command rules
+    rules_rm.py         # rm command rules
+    rules_sensitive.py  # Sensitive file rules
+    shell.py            # Shell parsing
+tests/
+  test_safety_net_git.py
+  test_safety_net_rm.py
+  test_safety_net_sensitive.py
+```
+
+## Acknowledgments
+
+This project is a fork of [claude-code-safety-net](https://github.com/kenryu42/claude-code-safety-net) by [kenryu42](https://github.com/kenryu42). Extended with additional git operation blocking and sensitive file protection for use with claude-foundry.
 
 ## License
 

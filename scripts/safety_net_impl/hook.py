@@ -16,6 +16,7 @@ from os import getenv
 
 from .rules_git import _analyze_git
 from .rules_rm import _analyze_rm
+from .rules_sensitive import _analyze_sensitive_read
 from .shell import _shlex_split, _split_shell_commands, _strip_wrappers
 
 _MAX_RECURSION_DEPTH = 5
@@ -248,6 +249,11 @@ def _analyze_segment(
         )
         return (segment, reason) if reason else None
 
+    # Check for sensitive file reads
+    reason = _analyze_sensitive_read(tokens)
+    if reason:
+        return segment, reason
+
     # Detect embedded destructive commands (e.g. $(rm -rf ...), `git reset --hard`).
     for i in range(1, len(tokens)):
         cmd = _normalize_cmd_token(tokens[i])
@@ -264,6 +270,10 @@ def _analyze_segment(
             reason = _analyze_git(["git", *tokens[i + 1 :]])
             if reason:
                 return segment, reason
+        # Check for sensitive file reads in embedded commands
+        reason = _analyze_sensitive_read([cmd, *tokens[i + 1 :]])
+        if reason:
+            return segment, reason
 
     reason = _dangerous_in_text(segment)
     return (segment, reason) if reason else None

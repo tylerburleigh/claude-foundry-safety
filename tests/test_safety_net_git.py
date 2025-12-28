@@ -14,12 +14,35 @@ class GitCheckoutTests(SafetyNetTestCase):
     def test_git_checkout_double_dash_dot_blocked(self) -> None:
         self._assert_blocked("git checkout -- .", "git checkout --")
 
-    # git checkout -b (create branch)
-    def test_git_checkout_b_allowed(self) -> None:
-        self._assert_allowed("git checkout -b new-branch")
+    # git checkout -b (create branch) - blocked
+    def test_git_checkout_b_blocked(self) -> None:
+        self._assert_blocked("git checkout -b new-branch", "git checkout -b")
 
-    def test_git_checkout_orphan_allowed(self) -> None:
-        self._assert_allowed("git checkout --orphan orphan-branch")
+    def test_git_checkout_orphan_blocked(self) -> None:
+        self._assert_blocked("git checkout --orphan orphan-branch", "git checkout -b")
+
+    # git checkout <branch> (switch branch) - blocked
+    def test_git_checkout_branch_blocked(self) -> None:
+        self._assert_blocked("git checkout main", "git checkout <branch>")
+
+    def test_git_checkout_branch_dash_blocked(self) -> None:
+        self._assert_blocked("git checkout -", "git checkout <branch>")
+
+
+class GitSwitchTests(SafetyNetTestCase):
+    # git switch (switch branch) - blocked
+    def test_git_switch_blocked(self) -> None:
+        self._assert_blocked("git switch main", "git switch")
+
+    def test_git_switch_dash_blocked(self) -> None:
+        self._assert_blocked("git switch -", "git switch")
+
+    # git switch -c (create branch) - blocked
+    def test_git_switch_c_blocked(self) -> None:
+        self._assert_blocked("git switch -c new-branch", "git switch -c")
+
+    def test_git_switch_create_blocked(self) -> None:
+        self._assert_blocked("git switch --create new-branch", "git switch -c")
 
 
 class GitRestoreTests(SafetyNetTestCase):
@@ -146,15 +169,29 @@ class GitPushTests(SafetyNetTestCase):
 
 
 class GitBranchTests(SafetyNetTestCase):
-    # git branch -D
+    # git branch -D/-d (delete branch) - blocked
     def test_git_branch_D_blocked(self) -> None:
-        self._assert_blocked("git branch -D feature", "git branch -D")
+        self._assert_blocked("git branch -D feature", "git branch -d")
 
     def test_git_branch_D_combined_short_options_blocked(self) -> None:
-        self._assert_blocked("git branch -Dv feature", "git branch -D")
+        self._assert_blocked("git branch -Dv feature", "git branch -d")
 
-    def test_git_branch_d_lowercase_allowed(self) -> None:
-        self._assert_allowed("git branch -d feature")
+    def test_git_branch_d_blocked(self) -> None:
+        self._assert_blocked("git branch -d feature", "git branch -d")
+
+    # git branch <name> (create branch) - blocked
+    def test_git_branch_create_blocked(self) -> None:
+        self._assert_blocked("git branch new-feature", "git branch <name>")
+
+    # git branch (list branches) - allowed
+    def test_git_branch_list_allowed(self) -> None:
+        self._assert_allowed("git branch")
+
+    def test_git_branch_v_allowed(self) -> None:
+        self._assert_allowed("git branch -v")
+
+    def test_git_branch_a_allowed(self) -> None:
+        self._assert_allowed("git branch -a")
 
 
 class GitStashTests(SafetyNetTestCase):
@@ -176,6 +213,62 @@ class GitStashTests(SafetyNetTestCase):
 
     def test_git_stash_pop_allowed(self) -> None:
         self._assert_allowed("git stash pop")
+
+
+class GitRebaseTests(SafetyNetTestCase):
+    # git rebase - blocked
+    def test_git_rebase_blocked(self) -> None:
+        self._assert_blocked("git rebase main", "git rebase")
+
+    def test_git_rebase_interactive_blocked(self) -> None:
+        self._assert_blocked("git rebase -i HEAD~3", "git rebase")
+
+    def test_git_rebase_onto_blocked(self) -> None:
+        self._assert_blocked("git rebase --onto main feature", "git rebase")
+
+    def test_git_rebase_continue_blocked(self) -> None:
+        self._assert_blocked("git rebase --continue", "git rebase")
+
+    def test_git_rebase_abort_blocked(self) -> None:
+        self._assert_blocked("git rebase --abort", "git rebase")
+
+
+class GitCommitTests(SafetyNetTestCase):
+    # git commit --amend - blocked
+    def test_git_commit_amend_blocked(self) -> None:
+        self._assert_blocked("git commit --amend", "git commit --amend")
+
+    def test_git_commit_amend_message_blocked(self) -> None:
+        self._assert_blocked("git commit --amend -m 'fix'", "git commit --amend")
+
+    def test_git_commit_amend_no_edit_blocked(self) -> None:
+        self._assert_blocked("git commit --amend --no-edit", "git commit --amend")
+
+    # git commit (normal) - allowed
+    def test_git_commit_allowed(self) -> None:
+        self._assert_allowed("git commit -m 'test'")
+
+    def test_git_commit_all_allowed(self) -> None:
+        self._assert_allowed("git commit -am 'test'")
+
+
+class GitTagTests(SafetyNetTestCase):
+    # git tag -d - blocked
+    def test_git_tag_delete_blocked(self) -> None:
+        self._assert_blocked("git tag -d v1.0", "git tag -d")
+
+    def test_git_tag_delete_long_blocked(self) -> None:
+        self._assert_blocked("git tag --delete v1.0", "git tag -d")
+
+    # git tag (create/list) - allowed
+    def test_git_tag_list_allowed(self) -> None:
+        self._assert_allowed("git tag")
+
+    def test_git_tag_create_allowed(self) -> None:
+        self._assert_allowed("git tag v1.0")
+
+    def test_git_tag_annotated_allowed(self) -> None:
+        self._assert_allowed("git tag -a v1.0 -m 'release'")
 
 
 class SafeCommandsTests(SafetyNetTestCase):

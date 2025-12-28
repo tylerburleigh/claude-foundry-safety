@@ -33,6 +33,27 @@ _REASON_GIT_STASH_DROP = (
     "List stashes first with 'git stash list'."
 )
 _REASON_GIT_STASH_CLEAR = "git stash clear permanently deletes ALL stashed changes."
+_REASON_GIT_CHECKOUT_BRANCH = (
+    "git checkout <branch> switches branches. Branch switching is not allowed."
+)
+_REASON_GIT_CHECKOUT_CREATE = (
+    "git checkout -b creates a new branch. Branch creation is not allowed."
+)
+_REASON_GIT_SWITCH = "git switch changes branches. Branch switching is not allowed."
+_REASON_GIT_SWITCH_CREATE = (
+    "git switch -c creates a new branch. Branch creation is not allowed."
+)
+_REASON_GIT_BRANCH_CREATE = (
+    "git branch <name> creates a new branch. Branch creation is not allowed."
+)
+_REASON_GIT_BRANCH_DELETE = (
+    "git branch -d deletes a branch. Branch deletion is not allowed."
+)
+_REASON_GIT_REBASE = "git rebase rewrites commit history. Rebase is not allowed."
+_REASON_GIT_COMMIT_AMEND = (
+    "git commit --amend rewrites commit history. Amend is not allowed."
+)
+_REASON_GIT_TAG_DELETE = "git tag -d deletes a tag. Tag deletion is not allowed."
 
 
 def _analyze_git(tokens: list[str]) -> str | None:
@@ -45,6 +66,7 @@ def _analyze_git(tokens: list[str]) -> str | None:
     short = _short_opts(rest)
 
     if sub == "checkout":
+        # Block checkout -- (discard changes)
         if "--" in rest:
             idx = rest.index("--")
             return (
@@ -52,9 +74,21 @@ def _analyze_git(tokens: list[str]) -> str | None:
                 if idx == 0
                 else _REASON_GIT_CHECKOUT_REF_DOUBLE_DASH
             )
+        # Block branch creation
         if "-b" in rest_lower or "--orphan" in rest_lower:
-            return None
+            return _REASON_GIT_CHECKOUT_CREATE
+        # Block branch switching (positional arg or "-" for previous branch)
+        positional = [t for t in rest if not t.startswith("-") or t == "-"]
+        if positional:
+            return _REASON_GIT_CHECKOUT_BRANCH
         return None
+
+    if sub == "switch":
+        if "-h" in rest_lower or "--help" in rest_lower:
+            return None
+        if "-c" in rest_lower or "--create" in rest_lower:
+            return _REASON_GIT_SWITCH_CREATE
+        return _REASON_GIT_SWITCH
 
     if sub == "restore":
         if "-h" in rest_lower or "--help" in rest_lower or "--version" in rest_lower:
@@ -92,11 +126,14 @@ def _analyze_git(tokens: list[str]) -> str | None:
         return None
 
     if sub == "branch":
-        if "-D" in rest or "D" in short:
-            return _REASON_GIT_BRANCH_DELETE_FORCE
-        if "-d" in rest or "d" in short:
+        # Block any deletion (-d or -D)
+        if "-D" in rest or "D" in short or "-d" in rest or "d" in short:
+            return _REASON_GIT_BRANCH_DELETE
+        # Allow listing: no args, or only flags
+        if not rest or all(t.startswith("-") for t in rest):
             return None
-        return None
+        # Has positional arg = creating a branch
+        return _REASON_GIT_BRANCH_CREATE
 
     if sub == "stash":
         if not rest_lower:
@@ -105,6 +142,21 @@ def _analyze_git(tokens: list[str]) -> str | None:
             return _REASON_GIT_STASH_DROP
         if rest_lower[0] == "clear":
             return _REASON_GIT_STASH_CLEAR
+        return None
+
+    if sub == "rebase":
+        if "-h" in rest_lower or "--help" in rest_lower:
+            return None
+        return _REASON_GIT_REBASE
+
+    if sub == "commit":
+        if "--amend" in rest_lower:
+            return _REASON_GIT_COMMIT_AMEND
+        return None
+
+    if sub == "tag":
+        if "-d" in rest_lower or "--delete" in rest_lower or "d" in short:
+            return _REASON_GIT_TAG_DELETE
         return None
 
     return None

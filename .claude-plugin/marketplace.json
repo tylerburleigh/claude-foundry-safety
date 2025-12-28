@@ -1,21 +1,21 @@
 {
   "name": "dev",
   "metadata": {
-    "description": "Development marketplace for safety net plugin",
+    "description": "Development marketplace for claude-foundry-safety plugin",
     "version": "1.0.0"
   },
   "owner": {
-    "name": "J Liew",
-    "email": "jliew@420024lab.com"
+    "name": "Tyler Burleigh",
+    "email": "tylerburleigh@gmail.com"
   },
   "plugins": [
     {
-      "name": "safety-net",
-      "description": "Block destructive git and filesystem commands in Claude Code",
+      "name": "claude-foundry-safety",
+      "description": "Safety guardrails for claude-foundry: blocks destructive commands, protects sensitive files, and prevents unsafe git operations",
       "source": "./",
       "author": {
-        "name": "J Liew",
-        "email": "jliew@420024lab.com"
+        "name": "Tyler Burleigh",
+        "email": "tylerburleigh@gmail.com"
       }
     }
   ]

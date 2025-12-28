@@ -1,6 +1,6 @@
 {
   "name": "claude-foundry-safety",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Safety guardrails for claude-foundry: blocks destructive commands, protects sensitive files, and prevents unsafe git operations",
   "author": {
     "name": "Tyler Burleigh",
